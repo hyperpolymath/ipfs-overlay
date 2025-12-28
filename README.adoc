@@ -1,0 +1,210 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2025 Hyperpolymath <hyperpolymath@proton.me>
+= ipfs-overlay
+:icons: font
+:toc: left
+:toclevels: 3
+
+== Purpose
+
+Deploy IPFS nodes inside Kubernetes and bind them to the ZeroTier overlay network for secure, decentralized storage.
+
+Part of the link:https://github.com/hyperpolymath/flatracoon-netstack[FlatRacoon Network Stack].
+
+== Architecture
+
+[source]
+----
+                    ┌─────────────────────┐
+                    │   Public IPFS       │
+                    │   (optional gate)   │
+                    └──────────┬──────────┘
+                               │ (if enabled)
+                    ┌──────────▼──────────┐
+                    │   Gateway Node      │
+                    │   (public bridge)   │
+                    └──────────┬──────────┘
+                               │
+       ┌───────────────────────┼───────────────────────┐
+       │       ZeroTier Overlay (encrypted mesh)       │
+       └───────────────────────┼───────────────────────┘
+                               │
+       ┌───────────────────────┼───────────────────────┐
+       │                       │                       │
+┌──────▼──────┐         ┌──────▼──────┐         ┌──────▼──────┐
+│  IPFS Node  │◄───────►│  IPFS Node  │◄───────►│  IPFS Node  │
+│  (private)  │  swarm  │  (private)  │  swarm  │  (private)  │
+└─────────────┘         └─────────────┘         └─────────────┘
+----
+
+== Components
+
+* **IPFS daemon configuration** - Kubo node settings for private operation
+* **Kubernetes manifests** - StatefulSet, PVC, Services
+* **Bootstrap and peer discovery** - Private swarm key, bootstrap list
+* **Private routing** - ZeroTier-only binding, no public DHT
+
+== Directory Structure
+
+[source]
+----
+ipfs-overlay/
+├── manifests/
+│   ├── statefulset.yaml    # IPFS nodes with persistent storage
+│   ├── service.yaml        # Internal cluster service
+│   ├── pvc.yaml            # Persistent volume claims
+│   ├── configmap.yaml      # IPFS configuration
+│   └── secret.yaml         # Swarm key
+├── configs/
+│   ├── ipfs-config.ncl     # Nickel IPFS configuration
+│   ├── swarm.ncl           # Swarm key generation
+│   └── bootstrap.ncl       # Bootstrap peer list
+├── scripts/
+│   ├── init-node.sh        # Node initialization
+│   ├── generate-swarm-key.sh
+│   └── health-check.sh
+├── Justfile
+├── README.adoc
+├── STATE.scm
+├── META.scm
+└── ECOSYSTEM.scm
+----
+
+== Inputs
+
+[cols="1,2,1"]
+|===
+| Input | Description | Source
+
+| `IPFS_SWARM_KEY`
+| Private swarm encryption key
+| Generated or poly-secret-mcp
+
+| Bootstrap nodes
+| Initial peer addresses
+| configs/bootstrap.ncl
+
+| ZeroTier interface
+| Network interface for binding
+| zerotier-k8s-link
+
+| Storage class
+| Kubernetes storage provisioner
+| Cluster configuration
+|===
+
+== Outputs
+
+[cols="1,2"]
+|===
+| Output | Description
+
+| Private IPFS cluster
+| Encrypted, ZeroTier-bound IPFS swarm
+
+| Distributed storage layer
+| Content-addressed storage for stack
+
+| Gateway (optional)
+| HTTP gateway for content retrieval
+
+| Pinning service
+| Persistent content pinning
+|===
+
+== Integration Points
+
+=== With FlatRacoon Stack
+
+* **zerotier-k8s-link** - IPFS binds exclusively to ZT interface
+* **twingate-helm-deploy** - External access via Twingate gateway
+* **poly-observability-mcp** - Storage metrics and health
+
+=== Machine-Readable Manifest
+
+[source,json]
+----
+{
+  "module": "ipfs-overlay",
+  "version": "0.1.0",
+  "layer": "storage",
+  "requires": ["kubernetes", "zerotier-k8s-link"],
+  "provides": ["distributed-storage", "content-addressing", "pinning"],
+  "config_schema": "configs/schema.ncl",
+  "health_endpoint": "/ipfs/health",
+  "metrics_endpoint": "/ipfs/metrics",
+  "api_endpoint": "/api/v0"
+}
+----
+
+== Quick Start
+
+[source,bash]
+----
+# 1. Ensure ZeroTier overlay is running
+just -f ../zerotier-k8s-link/Justfile status
+
+# 2. Generate or retrieve swarm key
+just generate-swarm-key
+# Or: just fetch-swarm-key  # from Vault
+
+# 3. Deploy IPFS nodes
+just deploy
+
+# 4. Verify cluster formation
+just cluster-status
+
+# 5. Test content pinning
+echo "Hello FlatRacoon" | just pin-content
+----
+
+== Private Swarm Configuration
+
+=== Swarm Key Generation
+
+[source,bash]
+----
+# Generate new swarm key
+echo -e "/key/swarm/psk/1.0.0/\n/base16/\n$(tr -dc 'a-f0-9' < /dev/urandom | head -c 64)" > swarm.key
+----
+
+=== IPFS Config for Private Operation
+
+[source,json]
+----
+{
+  "Bootstrap": [],
+  "Addresses": {
+    "Swarm": [
+      "/ip4/0.0.0.0/tcp/4001",
+      "/ip6/::/tcp/4001"
+    ],
+    "API": "/ip4/127.0.0.1/tcp/5001",
+    "Gateway": "/ip4/127.0.0.1/tcp/8080"
+  },
+  "Swarm": {
+    "AddrFilters": null,
+    "DisableBandwidthMetrics": false,
+    "DisableNatPortMap": true
+  },
+  "Discovery": {
+    "MDNS": {
+      "Enabled": false
+    }
+  },
+  "Routing": {
+    "Type": "none"
+  }
+}
+----
+
+== Status
+
+[horizontal]
+Phase:: Scaffolding
+Completion:: 10%
+Next:: StatefulSet implementation and swarm key management
+
+== License
+
+AGPL-3.0-or-later
