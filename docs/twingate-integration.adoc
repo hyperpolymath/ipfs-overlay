@@ -1,0 +1,247 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+= Twingate Integration Guide
+
+This guide explains how to expose IPFS gateway and API via Twingate for secure external access.
+
+== Architecture Overview
+
+----
+┌──────────────────────────────────────────────────┐
+│  External Users                                   │
+│    └── Twingate Client (authenticated)           │
+│              ↓ Identity-based Access              │
+├──────────────────────────────────────────────────┤
+│  Twingate Connector                              │
+│    ├── Gateway access (read-only)                │
+│    └── API access (admin-only)                   │
+│              ↓ Routes to Services                 │
+├──────────────────────────────────────────────────┤
+│  IPFS Services                                   │
+│    ├── Gateway: Port 8080 (HTTP)                 │
+│    ├── API: Port 5001 (HTTP RPC)                 │
+│    └── Swarm: Port 4001 (NOT exposed)            │
+└──────────────────────────────────────────────────┘
+----
+
+== Why Twingate for IPFS?
+
+**Problem: IPFS gateway needs authentication**
+- Public gateways expose content to anyone
+- API endpoints allow modification
+- No built-in user authentication
+- No audit trail of access
+
+**Twingate Solution:**
+- Identity-based access control (OIDC/SSO)
+- Fine-grained permissions (gateway vs API)
+- Complete audit log (who accessed what CID)
+- Zero exposed ports (no NodePort/LoadBalancer)
+
+== Twingate Resource Configuration
+
+Create two Resources in Twingate Admin Console:
+
+**Resource 1: IPFS Gateway (Read-only)**
+
+[source,yaml]
+----
+Name: "IPFS Private Gateway"
+Address: ipfs-gateway.ipfs-system.svc.cluster.local
+Port: 8080
+Protocol: HTTP
+Access Groups:
+  - All Engineers (read-only)
+  - Data Scientists (read-only)
+Security:
+  - Require MFA: Yes
+  - Session timeout: 8 hours
+----
+
+**Resource 2: IPFS API (Admin-only)**
+
+[source,yaml]
+----
+Name: "IPFS Admin API"
+Address: ipfs-api.ipfs-system.svc.cluster.local
+Port: 5001
+Protocol: HTTP
+Access Groups:
+  - IPFS Admins (full access)
+Security:
+  - Require MFA: Yes
+  - Session timeout: 1 hour
+  - Audit all operations: Yes
+----
+
+**Key Separation:** Gateway is read-only (fetch CIDs), API has write access (add/pin/rm).
+
+== Service Labeling
+
+Label IPFS services for Twingate discovery:
+
+[source,bash]
+----
+# Gateway service (read-only)
+kubectl label svc ipfs-gateway -n ipfs-system \
+  accessible-via-twingate=true \
+  twingate-access-level=read
+
+# API service (admin-only)
+kubectl label svc ipfs-api -n ipfs-system \
+  accessible-via-twingate=true \
+  twingate-access-level=admin
+----
+
+== User Workflow
+
+**Accessing IPFS Gateway:**
+
+[source,bash]
+----
+# 1. Start Twingate Client
+twingate start
+
+# 2. Authenticate (OIDC/SSO)
+twingate login
+
+# 3. Access gateway via internal DNS
+curl http://ipfs-private-gateway:8080/ipfs/Qm...
+# OR
+curl http://ipfs-private-gateway:8080/ipns/example.com
+
+# Twingate resolves DNS and routes traffic
+----
+
+**Accessing IPFS API (Admins only):**
+
+[source,bash]
+----
+# Add content (requires admin access + MFA)
+curl -X POST -F file=@document.pdf \
+  http://ipfs-admin-api:5001/api/v0/add
+
+# Pin CID (requires admin access)
+curl -X POST \
+  "http://ipfs-admin-api:5001/api/v0/pin/add?arg=Qm..."
+
+# List pins
+curl -X POST \
+  http://ipfs-admin-api:5001/api/v0/pin/ls
+----
+
+**Benefits:** Authenticated, audited, MFA-protected access without VPN or exposed ports.
+
+== Network Policy Coordination
+
+**Twingate NetworkPolicy:**
+
+[source,yaml]
+----
+egress:
+  - to:
+      - namespaceSelector:
+          matchLabels:
+            name: ipfs-system
+    ports:
+      - protocol: TCP
+        port: 8080  # Gateway
+      - protocol: TCP
+        port: 5001  # API
+----
+
+**IPFS NetworkPolicy:**
+
+[source,yaml]
+----
+ingress:
+  - from:
+      - namespaceSelector:
+          matchLabels:
+            name: twingate-system
+    ports:
+      - protocol: TCP
+        port: 8080  # Gateway
+      - protocol: TCP
+        port: 5001  # API
+----
+
+**Critical: Swarm port (4001) NOT exposed to Twingate**
+
+== Access Control Matrix
+
+| User Group | Gateway (8080) | API (5001) | Swarm (4001) |
+|------------|----------------|------------|--------------|
+| All Engineers | ✓ Read | ✗ | ✗ |
+| Data Scientists | ✓ Read | ✗ | ✗ |
+| IPFS Admins | ✓ Read | ✓ Write | ✗ |
+| ZeroTier Mesh | ✗ | ✗ | ✓ (internal only) |
+
+**Audit Trail:**
+
+Twingate logs all access:
+- Who accessed which CID
+- When and from where
+- Success/failure status
+- Bandwidth used
+
+Example audit query:
+[source,bash]
+----
+# Twingate Admin Console → Audit Logs
+# Filter: Resource="IPFS Private Gateway"
+# Shows: user@example.com accessed /ipfs/Qm... at 2026-01-22 16:00 UTC
+----
+
+== Monitoring Integration
+
+**Prometheus Metrics:**
+
+Twingate-IPFS metrics:
+- `twingate_ipfs_requests_total{resource="ipfs-gateway"}` - Total requests
+- `twingate_ipfs_bandwidth_bytes{direction="egress"}` - Data transferred
+- `twingate_ipfs_auth_failures_total` - Authentication failures
+
+IPFS metrics (via gateway):
+- `ipfs_http_requests_total{handler="gateway"}` - Gateway requests
+- `ipfs_blocks_sent_total` - Blocks served
+- `ipfs_gateway_latency_seconds` - Response time
+
+**Grafana Dashboard:**
+
+Correlate access with performance:
+- High Twingate requests + high IPFS latency = Scale gateway
+- High auth failures = Review access policies
+- Unusual CID patterns = Potential abuse
+
+== Troubleshooting
+
+**Users can't access gateway:**
+1. Check Twingate Client: `twingate status`
+2. Verify user in correct access group (Admin Console)
+3. Check Connector health: `kubectl get pods -n twingate-system`
+4. Verify IPFS gateway running: `kubectl get pods -n ipfs-system`
+
+**Gateway works but content not found:**
+1. Check CID is pinned: `kubectl exec -n ipfs-system ipfs-0 -- ipfs pin ls | grep <CID>`
+2. Verify swarm connected: `kubectl exec -n ipfs-system ipfs-0 -- ipfs swarm peers`
+3. Check ZeroTier mesh: `just -C ../zerotier-k8s-link mesh-status`
+
+**API access denied (admins):**
+1. Verify user in "IPFS Admins" group
+2. Check MFA completed
+3. Review Twingate audit logs
+4. Confirm API service running: `kubectl get svc ipfs-api -n ipfs-system`
+
+== Security Best Practices
+
+1. **Separate gateway and API** - Different access levels, different Resources
+2. **Require MFA for API** - Write operations need extra protection
+3. **Short session timeouts for API** - 1 hour max for admin access
+4. **Audit all API operations** - Track content additions/deletions
+5. **Never expose swarm port** - Keep 4001 internal to ZeroTier mesh only
+
+== References
+
+- link:https://github.com/hyperpolymath/twingate-helm-deploy[Twingate Helm Deploy]
+- link:https://docs.twingate.com/docs/resources[Twingate Resources Documentation]
+- link:../README.adoc[IPFS Overlay README]
