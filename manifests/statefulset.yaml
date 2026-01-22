@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ipfs
+  namespace: ipfs-system
+  labels:
+    app: ipfs
+    part-of: flatracoon-netstack
+spec:
+  serviceName: ipfs
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ipfs
+  template:
+    metadata:
+      labels:
+        app: ipfs
+        accessible-via-twingate: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5001"
+        prometheus.io/path: "/debug/metrics/prometheus"
+    spec:
+      initContainers:
+      - name: init-ipfs
+        image: ipfs/kubo:latest
+        command: ["/bin/sh", "/etc/ipfs/init-ipfs.sh"]
+        volumeMounts:
+        - name: ipfs-storage
+          mountPath: /data/ipfs
+        - name: ipfs-config
+          mountPath: /etc/ipfs
+        - name: swarm-key
+          mountPath: /etc/ipfs
+          readOnly: true
+      containers:
+      - name: ipfs
+        image: ipfs/kubo:latest
+        ports:
+        - name: swarm
+          containerPort: 4001
+          protocol: TCP
+        - name: api
+          containerPort: 5001
+          protocol: TCP
+        - name: gateway
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: IPFS_PATH
+          value: /data/ipfs
+        - name: IPFS_PROFILE
+          value: server
+        volumeMounts:
+        - name: ipfs-storage
+          mountPath: /data/ipfs
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /api/v0/id
+            port: 5001
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/v0/id
+            port: 5001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: ipfs-config
+        configMap:
+          name: ipfs-config
+          defaultMode: 0755
+      - name: swarm-key
+        secret:
+          secretName: ipfs-swarm-key
+  volumeClaimTemplates:
+  - metadata:
+      name: ipfs-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 20Gi

@@ -1,0 +1,234 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+= ZeroTier Integration Guide
+
+This guide explains how to bind IPFS exclusively to the ZeroTier overlay network for secure, private storage.
+
+== Architecture Overview
+
+----
+┌──────────────────────────────────────────────────┐
+│  IPFS Private Swarm (ZeroTier-only binding)     │
+│    ├── Node 1 (ZT IP: 10.147.17.10)             │
+│    ├── Node 2 (ZT IP: 10.147.17.11)             │
+│    └── Node 3 (ZT IP: 10.147.17.12)             │
+│              ↕ Encrypted P2P (AES-256)           │
+├──────────────────────────────────────────────────┤
+│  ZeroTier Overlay Network                        │
+│    └── Stable overlay IPs (10.147.x.x)          │
+└──────────────────────────────────────────────────┘
+----
+
+== Why ZeroTier for IPFS?
+
+**Traditional IPFS Problems:**
+1. **Public DHT** exposes content to global network
+2. **No encryption** in public swarm
+3. **NAT traversal** issues in restricted networks
+4. **IP churn** makes static addressing impossible
+
+**ZeroTier Solves:**
+1. **Private swarm** - Only authorized nodes can join
+2. **Double encryption** - ZeroTier (AES-256) + IPFS swarm key (AES-128)
+3. **Direct P2P** - NAT traversal handled by ZeroTier
+4. **Stable IPs** - Consistent overlay addressing
+
+== Deployment Order
+
+[source,bash]
+----
+# 1. Deploy ZeroTier overlay
+cd zerotier-k8s-link
+export ZEROTIER_NETWORK_ID=<network-id>
+export ZEROTIER_API_TOKEN=<api-token>
+just setup
+just mesh-status
+
+# 2. Deploy IPFS on ZeroTier
+cd ../ipfs-overlay
+just generate-swarm-key
+just deploy
+
+# 3. Connect nodes
+just connect-peers
+
+# 4. Verify cluster
+just health-check
+----
+
+== Network Binding Configuration
+
+IPFS nodes bind to ZeroTier interface exclusively:
+
+[source,json]
+----
+{
+  "Addresses": {
+    "Swarm": [
+      "/ip4/0.0.0.0/tcp/4001",  # Binds to ALL interfaces (ZeroTier included)
+      "/ip6/::/tcp/4001"
+    ],
+    "API": "/ip4/0.0.0.0/tcp/5001",
+    "Gateway": "/ip4/0.0.0.0/tcp/8080"
+  },
+  "Routing": {
+    "Type": "none"  # No public DHT
+  },
+  "Discovery": {
+    "MDNS": {
+      "Enabled": false  # No local broadcast
+    }
+  }
+}
+----
+
+**NetworkPolicy enforcement:**
+
+[source,yaml]
+----
+# Block public internet, allow ZeroTier mesh only
+egress:
+  - to:
+      - podSelector:
+          matchLabels:
+            app: ipfs
+    ports:
+      - protocol: TCP
+        port: 4001  # IPFS swarm
+----
+
+== Double Encryption Architecture
+
+**Layer 1: ZeroTier (AES-256)**
+- All packets encrypted by ZeroTier overlay
+- End-to-end encryption between nodes
+- Key managed by ZeroTier Central
+
+**Layer 2: IPFS Swarm Key (AES-128)**
+- Additional encryption at IPFS protocol level
+- Shared swarm key required to join network
+- Prevents unauthorized IPFS nodes from connecting
+
+Combined security: Even if ZeroTier is compromised, IPFS swarm key protects content.
+
+== Swarm Key Management
+
+Generate and deploy swarm key:
+
+[source,bash]
+----
+# Generate new swarm key
+just generate-swarm-key
+
+# Deploy as Kubernetes secret
+kubectl create secret generic ipfs-swarm-key \
+  --from-file=swarm.key=swarm.key \
+  -n ipfs-system
+
+# Verify deployment
+kubectl get secret ipfs-swarm-key -n ipfs-system -o yaml
+----
+
+**Key rotation:**
+
+[source,bash]
+----
+# Generate new key
+just generate-swarm-key swarm-new.key
+
+# Update secret (triggers rolling restart)
+kubectl create secret generic ipfs-swarm-key \
+  --from-file=swarm.key=swarm-new.key \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Wait for rollout
+kubectl rollout status statefulset/ipfs -n ipfs-system
+----
+
+== Peer Discovery and Connection
+
+**Bootstrap Configuration:**
+
+[source,bash]
+----
+# Clear public bootstrap peers
+ipfs bootstrap rm --all
+
+# Add cluster peers (ZeroTier IPs)
+ipfs bootstrap add /ip4/10.147.17.10/tcp/4001/p2p/Qm...
+ipfs bootstrap add /ip4/10.147.17.11/tcp/4001/p2p/Qm...
+ipfs bootstrap add /ip4/10.147.17.12/tcp/4001/p2p/Qm...
+----
+
+**Automated peer connection:**
+
+[source,bash]
+----
+# Connect all pods to each other
+just connect-peers
+
+# Verify connections
+kubectl exec -n ipfs-system ipfs-0 -- ipfs swarm peers
+# Should show: /ip4/10.147.17.x/tcp/4001/p2p/...
+----
+
+== Security Considerations
+
+**Principle: IPFS swarm port NEVER exposed outside ZeroTier**
+
+[source,bash]
+----
+# ✓ ALLOW: Port 4001 between IPFS pods (ZeroTier mesh)
+# ✓ ALLOW: Port 5001/8080 from Twingate (gateway/API)
+# ✗ DENY: Port 4001 to public internet
+# ✗ DENY: Port 4001 to non-IPFS pods
+# ✗ DENY: Public DHT participation
+----
+
+**Access Control Matrix:**
+
+| Component | Swarm (4001) | API (5001) | Gateway (8080) |
+|-----------|--------------|------------|----------------|
+| IPFS pods | ✓ (ZeroTier) | ✓ | ✓ |
+| Twingate | ✗ | ✓ (admin) | ✓ (users) |
+| Public internet | ✗ | ✗ | ✗ |
+| Other K8s pods | ✗ | ✗ | ✗ |
+
+== Monitoring Integration
+
+**Prometheus Metrics:**
+
+ZeroTier + IPFS metrics:
+- `zerotier_latency_ms{target="ipfs-0"}` - Overlay latency to IPFS nodes
+- `ipfs_swarm_peers_total` - Connected peers (should match cluster size)
+- `ipfs_datastore_size_bytes` - Storage usage per node
+
+**Grafana Dashboard:**
+
+Correlate network and storage:
+- High ZeroTier latency + high IPFS pin latency = Network issue
+- Low peer count + normal ZeroTier = IPFS swarm key mismatch
+- High data transfer + low ZeroTier latency = Optimal
+
+== Troubleshooting
+
+**IPFS nodes not connecting:**
+1. Check ZeroTier mesh: `just -C ../zerotier-k8s-link mesh-status`
+2. Verify swarm key: `kubectl exec -n ipfs-system ipfs-0 -- cat /data/ipfs/swarm.key`
+3. Check NetworkPolicy: `kubectl get networkpolicy -n ipfs-system`
+4. Verify peer IDs: `kubectl exec -n ipfs-system ipfs-0 -- ipfs id`
+
+**Swarm key mismatch:**
+1. Check secret: `kubectl get secret ipfs-swarm-key -n ipfs-system -o yaml`
+2. Verify all pods have same key: `kubectl exec -n ipfs-system ipfs-0 -- md5sum /data/ipfs/swarm.key`
+3. Restart pods if keys differ: `kubectl rollout restart statefulset/ipfs -n ipfs-system`
+
+**High latency:**
+1. Check ZeroTier direct connections: `zerotier-cli listpeers` (should not be "RELAY")
+2. Verify IPFS not using public relays: `ipfs swarm peers` (all should be 10.147.x.x)
+3. Check for bandwidth throttling in ZeroTier Central
+
+== References
+
+- link:https://github.com/hyperpolymath/zerotier-k8s-link[ZeroTier K8s Link]
+- link:https://docs.ipfs.tech/concepts/privacy-and-encryption/[IPFS Private Networks]
+- link:../README.adoc[IPFS Overlay README]
