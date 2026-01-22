@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ipfs
+  namespace: ipfs-system
+  labels:
+    app: ipfs
+spec:
+  selector:
+    matchLabels:
+      app: ipfs
+  endpoints:
+  - port: api
+    interval: 30s
+    path: /debug/metrics/prometheus
+    scheme: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipfs-metrics
+  namespace: ipfs-system
+  labels:
+    app: ipfs
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: ipfs
+  ports:
+  - name: metrics
+    port: 5001
+    targetPort: 5001
+    protocol: TCP

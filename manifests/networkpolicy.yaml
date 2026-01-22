@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ipfs-network-policy
+  namespace: ipfs-system
+spec:
+  podSelector:
+    matchLabels:
+      app: ipfs
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow swarm traffic from other IPFS nodes (ZeroTier mesh only)
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ipfs
+    ports:
+    - protocol: TCP
+      port: 4001
+  # Allow API access from Twingate connector
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: twingate-system
+    ports:
+    - protocol: TCP
+      port: 5001
+    - protocol: TCP
+      port: 8080
+  # Allow internal cluster access
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5001
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow swarm traffic to other IPFS nodes (ZeroTier mesh)
+  - to:
+    - podSelector:
+        matchLabels:
+          app: ipfs
+    ports:
+    - protocol: TCP
+      port: 4001
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+  # Block public internet (private swarm only)
