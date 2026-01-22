@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipfs-gateway
+  namespace: ipfs-system
+  labels:
+    app: ipfs
+    service-type: gateway
+    accessible-via-twingate: "true"
+    twingate-access-level: read
+spec:
+  type: ClusterIP
+  selector:
+    app: ipfs
+  ports:
+  - name: gateway
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipfs-api
+  namespace: ipfs-system
+  labels:
+    app: ipfs
+    service-type: api
+    accessible-via-twingate: "true"
+    twingate-access-level: admin
+spec:
+  type: ClusterIP
+  selector:
+    app: ipfs
+  ports:
+  - name: api
+    port: 5001
+    targetPort: 5001
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipfs-swarm
+  namespace: ipfs-system
+  labels:
+    app: ipfs
+    service-type: swarm
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: ipfs
+  ports:
+  - name: swarm
+    port: 4001
+    targetPort: 4001
+    protocol: TCP
