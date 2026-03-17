@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Clade declaration — part of the gv-clade-index registry
+# See: https://github.com/hyperpolymath/gv-clade-index
+
+[identity]
+uuid = "0869b745-17d0-563b-931d-7f49082d7b52"
+primary-forge = "github"
+primary-owner = "hyperpolymath"
+canonical-name = "ipfs-overlay"
+prefixed-name = "ix-ipfs-overlay"
+
+[clade]
+primary = "ix"
+secondary = []
+assigned = "2026-03-16"
+rationale = ""
+
+[forges]
+github = "hyperpolymath/ipfs-overlay"
+gitlab = "hyperpolymath/ipfs-overlay"
+bitbucket = "hyperpolymath/ipfs-overlay"
+
+[lineage]
+type = "standalone"
+parent = "IPFS overlay network tool"
+born = "2026-03-16"
