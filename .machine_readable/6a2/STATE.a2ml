@@ -5,10 +5,21 @@
 [metadata]
 project = "ipfs-overlay"
 version = "0.1.0"
-last-updated = "2026-03-15"
+last-updated = "2026-04-04"
 status = "active"
+crg-grade = "C"
 
 [project-context]
 name = "ipfs-overlay"
-completion-percentage = 0
-phase = "In development"
+completion-percentage = 50
+phase = "CRG C testing complete"
+
+[testing-status]
+unit-tests = "complete (9 tests)"
+smoke-tests = "complete (7 tests)"
+property-tests = "complete (10 tests)"
+e2e-tests = "complete (10 tests)"
+contract-tests = "complete (10 tests)"
+aspect-tests = "complete (10 tests)"
+benchmarks = "baselined (9 suites)"
+total-tests = "56 passed, 0 failed"
