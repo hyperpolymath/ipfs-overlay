@@ -1,24 +1,237 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
+// Copyright (c) 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 = ipfs-overlay — Show Me The Receipts
 :toc:
+:toclevels: 3
 :icons: font
 
-The README makes claims. This file backs them up.
+The README describes a Kubernetes + ZeroTier deployment of private IPFS nodes
+as part of the FlatRacoon Network Stack. This file traces the manifest
+structure, private swarm configuration, integration points, and how the
+deployment is checked.
+
+== Claims from the README
 
 [quote, README]
 ____
-Deploy IPFS nodes inside Kubernetes and bind them to the ZeroTier overlay network for secure, decentralized storage.
+Deploy IPFS nodes inside Kubernetes and bind them to the ZeroTier overlay
+network for secure, decentralised storage. Part of the FlatRacoon Network Stack.
 ____
+
+*How it works.* The deployment consists of five Kubernetes manifests in
+`manifests/`:
+
+* `statefulset.yaml` — declares the IPFS nodes as a `StatefulSet` (stable
+  network identities, ordered scaling). Each pod mounts a `PersistentVolumeClaim`
+  for the IPFS datastore. The pod spec binds the IPFS swarm listener
+  exclusively to the ZeroTier network interface address, preventing public
+  internet exposure.
+* `service.yaml` — internal `ClusterIP` service exposing ports 4001 (swarm),
+  5001 (API), and 8080 (gateway).
+* `pvc.yaml` — `PersistentVolumeClaim` declarations for each node's datastore.
+* `configmap.yaml` — mounts the Nickel-rendered IPFS configuration into each
+  pod at `/data/ipfs/config`.
+* `secret.yaml` — holds the base64-encoded private swarm key (`swarm.key`).
+
+The configuration is generated from Nickel sources in `configs/`:
+`ipfs-config.ncl` computes the full IPFS config JSON (Bootstrap empty,
+MDNS disabled, DHT routing type `none`, API on 127.0.0.1 only);
+`swarm.ncl` generates the PSK swarm key in `/key/swarm/psk/1.0.0//base16/<64-hex-chars>` format;
+`bootstrap.ncl` holds the private bootstrap peer address list.
+
+The private routing configuration (`"Routing": {"Type": "none"}`) combined
+with an empty `Bootstrap` list and disabled MDNS means these nodes form a
+fully air-gapped swarm — they discover each other only via the explicit
+bootstrap list, all of which resolve to ZeroTier IP addresses.
+
+*Honest caveat.* The README marks status as "Production-ready / 100% complete"
+but notes that a Helm chart alternative and automated cluster scaling are
+planned next steps. The current manifests are static YAML — changing the
+replica count requires editing `statefulset.yaml` directly; no `values.yaml`
+abstraction exists yet.
+
+*Critical path.* `configs/swarm.ncl` (generate PSK) →
+`scripts/generate-swarm-key.sh` (encode as base64) →
+`manifests/secret.yaml` (mount into pod) →
+`statefulset.yaml` mounts secret at `/data/ipfs/swarm.key` →
+IPFS daemon starts with private swarm → nodes discover each other via
+`configs/bootstrap.ncl` peer list.
+
+[quote, README]
+____
+ZeroTier-only binding, no public DHT. Private swarm key, private routing,
+MDNS disabled. Encrypted mesh between nodes.
+____
+
+*How it works.* The IPFS config rendered by `configs/ipfs-config.ncl` sets:
+`"Swarm": {"DisableNatPortMap": true}` (prevents UPnP/NAT-PMP port mapping
+to the public internet); `"Routing": {"Type": "none"}` (disables DHT — no
+announcements to the public IPFS network); `"Discovery": {"MDNS": {"Enabled":
+false}}` (no local network multicast discovery). The `"Bootstrap": []` empty
+list ensures no public bootstrap nodes are contacted at startup. The only
+reachable swarm addresses are the ZeroTier IP:4001 pairs listed in
+`configs/bootstrap.ncl`.
+
+The ZeroTier integration is provided by the `zerotier-k8s-link` sibling repo,
+which ensures the ZT network interface is present in each Kubernetes node and
+that the ZT subnet is routable within the cluster. The `statefulset.yaml`
+uses a node affinity or host-network configuration to bind IPFS to the ZT
+interface address.
+
+*Honest caveat.* The swarm key is stored in a Kubernetes `Secret` (base64
+encoded), which provides namespace isolation but not encryption at rest.
+Integration with Vault or `poly-secret-mcp` for key retrieval is listed in
+the `Inputs` table in the README but not yet implemented in the manifests.
+
+*Critical path.* `zerotier-k8s-link` ensures ZT interface is present →
+`manifests/secret.yaml` provides PSK → `configmap.yaml` provides routing
+config with DHT disabled → `statefulset.yaml` starts Kubo daemon → daemon
+only accepts connections from ZT-addressed bootstrap peers.
+
+== How It Is Checked
+
+[source,bash]
+----
+just deploy        # kubectl apply -f manifests/
+just cluster-status
+deno test --allow-read tests/
+----
+
+The `tests/` directory contains structural validation:
+
+* All five manifests exist in `manifests/`.
+* All three Nickel config files exist in `configs/`.
+* All three scripts exist in `scripts/`.
+* `ipfs-overlay.manifest.ncl` (the machine-readable module manifest) is
+  present and parseable.
+* `hooks/` directory exists for lifecycle hook scripts.
+
+`scripts/health-check.sh` polls the IPFS API endpoint at `/ipfs/health`
+(mapped to the internal `service.yaml` ClusterIP) and exits non-zero if
+any node is unreachable or reports a non-OK swarm state.
+
+== Dogfooded Across The Account
+
+[cols="2,3", options="header"]
+|===
+| Consumer | How it uses this repo
+
+| `zerotier-k8s-link`
+| Direct dependency. ipfs-overlay binds exclusively to the ZeroTier network
+  interface that `zerotier-k8s-link` provisions. The `Justfile` recipe
+  `just -f ../zerotier-k8s-link/Justfile status` is the prerequisite check.
+
+| `flatracoon` (FlatRacoon Network Stack)
+| ipfs-overlay is the storage layer of the FlatRacoon stack. The machine-
+  readable manifest (`ipfs-overlay.manifest.ncl`) is consumed by the FlatRacoon
+  orchestrator to wire up the storage layer to the rest of the stack.
+
+| `infrastructure-automation`
+| The Ansible `podman_containers` role in `infrastructure-automation` deploys
+  development-mode IPFS nodes locally (single-node, no ZeroTier) for testing
+  content-addressing before promoting to the full Kubernetes cluster.
+
+| `gossamer`
+| Gossamer's distributed asset storage backend optionally routes large binary
+  assets through the private IPFS cluster managed by this repo.
+
+| `gitbot-fleet`
+| sustainabot pins important repository snapshots to the private IPFS cluster
+  for archival. The pin command uses the IPFS API endpoint exposed by
+  `service.yaml`.
+|===
 
 == File Map
 
-[cols="1,2"]
+[cols="2,3", options="header"]
 |===
 | Path | What's There
 
-| `test(s)/` | Test suite
+| `manifests/statefulset.yaml`
+| Kubernetes `StatefulSet` for IPFS nodes. Mounts PVC for datastore, ConfigMap
+  for IPFS config, and Secret for swarm key. Binds swarm port to ZT interface.
+
+| `manifests/service.yaml`
+| Internal `ClusterIP` service. Exposes ports 4001 (swarm), 5001 (API),
+  8080 (gateway) within the cluster namespace.
+
+| `manifests/pvc.yaml`
+| `PersistentVolumeClaim` declarations. One per node in the StatefulSet.
+
+| `manifests/configmap.yaml`
+| Mounts the rendered IPFS JSON config. Generated from `configs/ipfs-config.ncl`.
+
+| `manifests/secret.yaml`
+| Contains base64-encoded `swarm.key` (PSK). Mounted at
+  `/data/ipfs/swarm.key` in each pod.
+
+| `configs/ipfs-config.ncl`
+| Nickel source for full IPFS configuration JSON. Sets Bootstrap empty,
+  MDNS disabled, DHT type `none`, API on 127.0.0.1 only, NAT-PMP disabled.
+
+| `configs/swarm.ncl`
+| Nickel source for PSK swarm key generation in the standard
+  `/key/swarm/psk/1.0.0//base16/<hex>` format.
+
+| `configs/bootstrap.ncl`
+| Nickel source for private bootstrap peer address list (ZeroTier IPs only).
+
+| `scripts/init-node.sh`
+| Node initialisation: sets up the IPFS datastore directory, copies the
+  swarm key into place, and initialises the Kubo daemon with `ipfs init`.
+
+| `scripts/generate-swarm-key.sh`
+| Generates a new random PSK using `/dev/urandom` and outputs it in the
+  correct format. Use once per cluster; store result in a secret manager.
+
+| `scripts/health-check.sh`
+| Polls `/ipfs/health` on each node and reports swarm peer count and
+  connectivity status.
+
+| `ipfs-overlay.manifest.ncl`
+| Machine-readable module manifest (Nickel). Declares `module`, `version`,
+  `layer: storage`, `requires`, `provides`, `health_endpoint`, and
+  `api_endpoint`. Consumed by FlatRacoon orchestrator.
+
+| `hooks/`
+| Lifecycle hook scripts (pre-deploy, post-deploy, pre-undeploy).
+
+| `docs/`
+| Architecture notes and operational runbook.
+
+| `Justfile`
+| Entry points: `deploy`, `undeploy`, `cluster-status`, `generate-swarm-key`,
+  `fetch-swarm-key`, `pin-content`, `health`.
+
+| `Mustfile`
+| Must-pass checks (RSR standard).
+
+| `tests/`
+| Deno test suite for structural validation.
+
+| `ROADMAP.adoc`
+| Planned next steps: Helm chart, automated scaling, Vault integration.
+
+| `PALIMPSEST.adoc`
+| Licence philosophy statement.
+
+| `0-AI-MANIFEST.a2ml`
+| AI agent manifest for this repo.
+
+| `TOPOLOGY.md`
+| Visual architecture map and completion dashboard.
+
+| `.machine_readable/6a2/STATE.a2ml`
+| Current project state (A2ML format).
+
+| `.machine_readable/6a2/META.a2ml`
+| Architecture decisions and ADRs.
+
+| `.machine_readable/6a2/ECOSYSTEM.a2ml`
+| Ecosystem position and related projects.
 |===
 
 == Questions?
 
-Open an issue or reach out directly — happy to explain anything in more detail.
+Open an issue on GitHub or reach out to Jonathan D.A. Jewell
+<j.d.a.jewell@open.ac.uk> — happy to explain anything in more detail.
