@@ -1,6 +1,6 @@
 # TEST-NEEDS.md — ipfs-overlay CRG C Status
 
-## Code Review Grade: C (ACHIEVED 2026-04-04)
+## CRG Grade: C — ACHIEVED 2026-04-04
 
 This document certifies that ipfs-overlay has achieved CRG Grade C per the Hyperpolymath Testing & Benchmarking Taxonomy v1.0.
 
