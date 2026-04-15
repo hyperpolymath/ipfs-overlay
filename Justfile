@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 # Justfile - IPFS overlay deployment automation
 
+import? "contractile.just"
+
 default:
     @just --list
 
