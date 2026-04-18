@@ -1,0 +1,723 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Copyright (c) 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+
+= ipfs-overlay — CRG Audit (2026-04-18)
+Jonathan D.A. Jewell
+2026-04-18
+:toc:
+:sectnums:
+
+== Scope and Standard
+
+Evaluates the `developer-ecosystem/ipfs-overlay` repository against
+*Component Readiness Grades v2.0 (STRICT)*, 2026-03-30 revision.
+ipfs-overlay is self-declared *C* in its flat `crg-grade` key and has
+a companion `TEST-NEEDS.md` claiming "CRG Grade C — ACHIEVED
+2026-04-04". The audit checks that claim against on-disk evidence,
+estate dogfooding signal, the HYP-S005 overclaim-canary rule, and the
+v2.0 "honest D > dishonest B" clause.
+
+- Standard: `standards/component-readiness-grades/COMPONENT-READINESS-GRADES.md`
+- Criteria boilerplate: `rsr-template-repo/docs/governance/CRG-CRITERIA.adoc`
+- Audit template: `rsr-template-repo/docs/governance/CRG-AUDIT-TEMPLATE.adoc`
+- Calibration reference: `verification-ecosystem/proof-of-work/docs/governance/CRG-AUDIT-2026-04-18.adoc`
+- Self-declared grade (prior art):
+  * `.machine_readable/6a2/STATE.a2ml` `[metadata] crg-grade = "C"`, last-updated 2026-04-04.
+  * `[project-context] completion-percentage = 50`, `phase = "CRG C testing complete"`.
+  * `TEST-NEEDS.md` header: "CRG Grade: C — ACHIEVED 2026-04-04", certified by "Claude Haiku 4.5".
+  * README.adoc `Status` block: `Phase: Production-ready`, `Completion: 100%`.
+- Audit date: 2026-04-18
+- Auditor: Jonathan D.A. Jewell
+
+Schema note: ipfs-overlay uses the *flat* `crg-grade = "C"` under
+`[metadata]` — the same shape the HYP-S005 canary matches. There is no
+`[crg-grade-previous]` audit-trail key yet. STATE's `completion-percentage
+= 50` directly contradicts README.adoc's `Completion: 100%`; both
+authoritative sources disagree by 50 percentage points.
+
+The audit grades the repo *as-is today*, not aspirationally.
+
+== v2.0 Strictness Recap
+
+[cols="1,3,4"]
+|===
+| Grade | Release Stage | Hard Requirement (v2.0)
+
+| X | None             | Untested.
+| F | Reject           | Harmful, wasteful, or superseded.
+| E | Pre-alpha        | >=1 test, failures documented.
+| D | Alpha            | Test matrix + scope documented + *RSR compliance mandatory*.
+| C | Alpha-stable     | Dogfooded, CI green, *deep per-file + per-directory annotation*.
+| B | Beta             | 6+ *diverse* external targets, issues fed back.
+| A | Stable           | Real-world external feedback confirms value; no harm.
+|===
+
+Publication requires B+. Long alpha is discipline, not shame.
+
+== Evidence Inventory (verified 2026-04-18)
+
+=== Structural compliance (Grade D floor)
+
+[cols="2,1,3"]
+|===
+| Item | State | Source
+
+| RSR mandatory workflows (17+)
+| PRESENT (18 YAML files in `.github/workflows/`)
+| `.github/workflows/` — hypatia-scan, codeql, scorecard, scorecard-enforcer, rsr-antipattern, guix-nix-policy, mirror, instant-sync, secret-scanner, wellknown-enforcement, security-policy, ts-blocker, npm-bun-blocker, workflow-linter, quality, casket-pages, dogfood-gate, boj-build. Canonical 17+ set satisfied.
+
+| `.machine_readable/6a2/` canonical A2ML
+| PRESENT (STATE, META, ECOSYSTEM, AGENTIC, NEUROSYM, PLAYBOOK — all 6 files)
+| Only STATE has substantive content (26 lines). META (10 lines), ECOSYSTEM (11 lines), AGENTIC (25 lines of comment stubs), NEUROSYM (14 lines), PLAYBOOK (23 lines of commented-out templates) are schema skeletons, not documentation. *Five of six 6a2 files are stubs.*
+
+| `0-AI-MANIFEST.a2ml`
+| PRESENT (4 170 bytes, substantive)
+| Root
+
+| `README.adoc`, `EXPLAINME.adoc`, `CONTRIBUTING.md`, `SECURITY.md`, `MAINTAINERS.adoc`, `CODE_OF_CONDUCT.md`, `ROADMAP.adoc`, `PALIMPSEST.adoc`, `NOTICE`, `TOPOLOGY.md`
+| PRESENT
+| Root
+
+| `docs/` orientation subtree
+| *THIN* — 3 integration notes (`proven-integration.adoc`, `twingate-integration.adoc`, `zerotier-integration.adoc`) + two sparse subdirs (`accessibility/README.adoc`, `compliance/ACCESSIBILITY.adoc`). No `docs/architecture/`, `docs/decisions/`, `docs/governance/` (until this audit), `docs/specification/`.
+| Thicker than proof-of-work (1 file) but no ADRs and no per-subtree orientation.
+
+| `LICENSE` + `LICENSES/` directory
+| PRESENT (`LICENSE` PMPL-1.0-or-later full text, `LICENSES/` dir)
+| Root
+
+| `guix.scm` + `flake.nix`
+| PRESENT (both)
+| Root
+
+| `.well-known/` (security.txt, ai.txt, humans.txt)
+| PRESENT (plus `groove/` subdirectory)
+| `.well-known/`
+
+| SPDX headers on source
+| PRESENT on 29/29 sampled (3 configs, 4 scripts, 7 manifests, 7 tests, 2 well-known) — uniformly `PMPL-1.0-or-later`.
+| Uniform.
+
+| `Containerfile` (not `Dockerfile`)
+| *ABSENT* — no container build in the repo. `stapeln.toml` present (image declaration) but no `Containerfile`.
+| Deployment is kubectl-apply-of-YAML, no local build stage. Acceptable for a manifests-only module, but the `boj-build.yml` workflow assumes a container; worth noting.
+
+| `Justfile` + `Mustfile` (no `Makefile`)
+| PRESENT; zero `Makefile`. `Mustfile` declares `security`/`tests`/`format` checks that resolve to `just lint`, `just test`, `just fmt`.
+| Build-system policy met — *but see CI-green finding below*: `just test` body is `@echo "Testing..."` (empty stub), `just fmt` body is `@echo "Formatting..."` (empty stub). Mustfile passes because its delegated recipes are no-ops.
+
+| Contractile trident
+| PRESENT: `.machine_readable/INTENT.contractile`, `TRUST.contractile`, `MUST.contractile`, `ADJUST.contractile` + `contractiles/{dust,lust,must,k9}/` runner tree. Six-verb `bust` file absent.
+| Trident present — *but* `INTENT.contractile` still contains the template placeholder `{{ONE_PARAGRAPH_PURPOSE}}` unfilled. The intent contractile has no actual intent statement.
+
+| Remote
+| `origin → git@github.com:hyperpolymath/ipfs-overlay.git` plus four mirror remotes (bitbucket, codeberg, gitlab, sourcehut)
+| `git remote -v`. Per GitHub-only mirroring rule, mirror-forge remotes are informational only — downstream hub-and-spoke drives them. Presence is not a defect.
+
+| `.editorconfig`, `.gitattributes`, `.gitignore`
+| PRESENT
+| Root
+
+| `hooks/`
+| PRESENT (`validate-codeql.sh`, `validate-permissions.sh`, `validate-sha-pins.sh`, `validate-spdx.sh`)
+| Standard hook battery.
+
+| `.hypatia/activity.jsonl`
+| PRESENT (*1 line*, last hypatia-autofix scan 2026-03-08T02:04:13Z, 0 fixes)
+| Not a usage log.
+
+| `setup.sh`, `QUICKSTART-{DEV,USER,MAINTAINER}.adoc`, `llm-warmup-{dev,user}.md`
+| PRESENT (from rsr-template-repo `just init`)
+| Onboarding surface is complete.
+
+| Anchor + clade
+| DISAGREEMENT (see below)
+| `.machine_readable/anchors/ANCHOR.a2ml` vs `.machine_readable/CLADE.a2ml`
+|===
+
+*RSR compliance verdict*: **met — D-floor satisfied**. 18 workflows parse,
+SPDX is uniform across 29/29 sampled files, LICENSE clean, `.well-known/`
+complete, contractile trident files present, guix/nix present, no
+committed merge-conflict markers.
+
+The D-floor-*content* weaknesses (ROADMAP is untouched template,
+INTENT.contractile still holds `{{ONE_PARAGRAPH_PURPOSE}}`, 5/6 6a2
+files are stubs) do not disqualify D but are the first things a C
+audit catches.
+
+=== Anchor vs clade disagreement
+
+`.machine_readable/anchors/ANCHOR.a2ml`::
+  `id: "org.hyperpolymath.ipfs-overlay"`, `clade: "unknown"`,
+  `parents: ["org.hyperpolymath.boj-server"]`.
+
+`.machine_readable/CLADE.a2ml`::
+  `primary = "ix"`, `prefixed-name = "ix-ipfs-overlay"`,
+  `lineage.type = "standalone"`, `parent = "IPFS overlay network tool"`
+  (a *description*, not a parent object id).
+
+These disagree on *both* clade (`"unknown"` vs `"ix"`) and lineage
+(`parents = [boj-server]` vs `standalone`). This is the same defect
+pattern flagged in the proof-of-work audit (ANCHOR says child-of-X,
+CLADE says standalone). Pick one.
+
+=== Canonical vs nested-copy divergence
+
+A nested copy exists at
+`systems-ecosystem/flatracoon/netstack/modules/ipfs-overlay/` with
+`.git` as a *regular file* (a gitlink to the parent's index) — i.e. it
+is a worktree / submodule pointer, not an independent clone.
+`diff -rq` between canonical and nested shows:
+
+- Canonical-only: `.machine_readable/policies/`, `tests/fuzz/`,
+  `.well-known/groove/`.
+- Nested-copy-only: none (except the gitlink indirection).
+- Content differences: `.github/workflows/hypatia-scan.yml`,
+  `.gitignore`, `LICENSE` — minor drift (likely the 2026-04-17
+  estate-wide hypatia-scan and LICENSE-PMPL bumps haven't propagated
+  to the nested checkout).
+
+The nested copy does not contradict the canonical; it is slightly
+behind. Classify as *propagation lag*, not divergence. No grading
+impact, but the flatracoon orchestrator should pull fresh.
+
+=== Code and proofs
+
+ipfs-overlay is a Kubernetes-manifests-plus-Nickel-configs module.
+There is no compiled code — all artefacts are declarative.
+
+[cols="2,1,3"]
+|===
+| Item | Count | Notes
+
+| Kubernetes manifests (`manifests/*.yaml`)
+| *7 files, 346 LOC*
+| `namespace.yaml` 8, `secret.yaml` 14, `servicemonitor.yaml` 35, `networkpolicy.yaml` 58, `service.yaml` 59, `configmap.yaml` 79, `statefulset.yaml` 93. EXPLAINME claims *5* manifests; on-disk is *7* (adds `namespace`, `networkpolicy`, `servicemonitor`). EXPLAINME also claims `pvc.yaml` — *does not exist on disk*. File-Map drift in the opposite direction to most audits: more files present than advertised plus one phantom.
+
+| Nickel configs (`configs/*.ncl`)
+| 3 files, 76 LOC
+| `bootstrap.ncl` 20, `ipfs-config.ncl` 43, `swarm.ncl` 13. Matches EXPLAINME.
+
+| Shell scripts (`scripts/*.sh`)
+| 4 files, 174 LOC
+| `init-node.sh` 56, `connect-peers.sh` 46, `health-check.sh` 43, `generate-swarm-key.sh` 29. All `#!/bin/bash`, all SPDX-headered. EXPLAINME lists 3 of the 4 (misses `connect-peers.sh`). Minor drift.
+
+| Test files (`tests/**/*.ts`)
+| *7 files, 1 005 LOC* — *TypeScript*
+| *Language-policy violation.* TypeScript is BANNED per `/var/mnt/eclipse/repos/.claude/CLAUDE.md` "Enforcement Rules → No new TypeScript files". `.github/workflows/ts-blocker.yml` exists and would flag these if it runs on non-root `.ts`; needs confirming. Replacement is ReScript (compiles to JS for Deno) or — more realistic for config validation — plain Deno bash-style scripts or Julia.
+
+| Deno.test attributes
+| *56* (grep-verifiable, matches TEST-NEEDS.md declared total exactly)
+| unit 9, smoke 7, property 10, e2e 10, contract 10, aspect 10. *Honest count* — this is the rare positive signal against HYP-S005.
+
+| Deno.bench attributes
+| *9* (grep-verifiable)
+| `tests/bench/config_bench.ts`. Honest count.
+
+| `tests/fuzz/` contents
+| *EMPTY directory*
+| Suggests scaffold-only. Not a defect but not a fuzzing capability either.
+
+| Axiomatic `believe_me` sites
+| N/A (no Idris code)
+| —
+
+| Dangerous-pattern scan (`believe_me`, `assert_total`, `Admitted`, `sorry`, `unsafeCoerce`, `Obj.magic`, `.unwrap()`) in configs/scripts/tests
+| *0*
+| 8 grep hits all occur in `.machine_readable/MUST.contractile`, `.machine_readable/6a2/AGENTIC.a2ml`, `.machine_readable/agent_instructions/methodology.a2ml` — these are *bans on use*, not uses. Clean.
+
+| `panic-attack assail` run record
+| Not cited in STATE. `Justfile` has an `assail` recipe but output not logged.
+| Standing pre-commit rule; running it is a routine follow-up.
+|===
+
+File-vs-EXPLAINME drift summary: EXPLAINME File Map lists *5 manifests
+including a nonexistent `pvc.yaml`*; on-disk is *7 manifests, no
+`pvc.yaml`*. EXPLAINME also misses `connect-peers.sh` (present on
+disk). This is *mild* File-Map drift — much smaller than the
+proof-of-work 10-phantom-paths finding, but still a documented-surface
+mismatch that directly undercuts the v2.0 C clause "deep per-file
+annotation".
+
+=== Test matrix — declared vs actual
+
+STATE.a2ml `[testing-status]` and `TEST-NEEDS.md` declare:
+
+[cols="2,1,1,2"]
+|===
+| Suite | Declared | Grep-verifiable | Notes
+
+| unit            | 9       | 9 `Deno.test`  | `tests/unit/config_structure_test.ts` — *exact match*.
+| smoke           | 7       | 7 `Deno.test`  | `tests/smoke/scripts_smoke_test.ts` — *exact match*.
+| property        | 10      | 10 `Deno.test` | `tests/property/config_property_test.ts` — *exact match*.
+| e2e             | 10      | 10 `Deno.test` | `tests/e2e/pipeline_e2e_test.ts` — *exact match*.
+| contract        | 10      | 10 `Deno.test` | `tests/contract/config_contracts_test.ts` — *exact match*.
+| aspect          | 10      | 10 `Deno.test` | `tests/aspect/security_aspect_test.ts` — *exact match*.
+| reflexive       | "integrated in e2e" | N/A — no separate suite | Honest disclosure; not an overclaim.
+| benchmarks      | 9       | 9 `Deno.bench` | `tests/bench/config_bench.ts` — *exact match*.
+| *total-tests*   | *56 passed, 0 failed* | *56 `Deno.test` attributes* | *Exact, grep-verifiable match.*
+|===
+
+*This is honest.* The reconciliation delta is *zero* across six suites
+plus the bench harness. ipfs-overlay's TEST-NEEDS.md is the
+counter-example to proof-of-work's 37–56 % overclaims: counts line up
+with grep.
+
+However — and this is what costs the C grade — *the tests are written
+in a banned language (TypeScript)*. They run under Deno, they parse,
+they pass (per TEST-NEEDS.md: 56 passed, 0 failed, 797 ms), but the
+language-policy rule "No new TypeScript files" is violated by seven
+files created on 2026-04-04. A green `.ts` suite is greener than a
+red one, but the suite itself is a standing policy debt.
+
+CI coverage:
+
+- `.github/workflows/quality.yml` exists (2012 bytes) but `just test`
+  is a *one-line stub* (`@echo "Testing..."`). The `Justfile test`
+  recipe does not invoke `deno test`. Any `just test` call in CI would
+  return success without running the Deno suite.
+- `TEST-NEEDS.md` documents the command the tests *do* pass under:
+  `deno test --allow-read tests/` — but this is not wired into
+  `Justfile`. There is no `quality.yml` job step named in
+  TEST-NEEDS.md either, so the "CI green" claim rests on a channel
+  that does not exist.
+- Last green run date: not cited in STATE.
+- No CI-badge link in README for the test pipeline (CRG shields only,
+  via `crg-grade` Justfile recipe that reads `READINESS.md` — file
+  not present in the tree).
+
+Net: the test *surface* is honest; the *CI-green* claim is not
+substantiated because the runner recipe is a stub.
+
+=== Annotation depth
+
+v2.0 C requires **per-file and per-directory orientation**. Evidence:
+
+- `docs/` contains *three integration notes* (`proven-integration`,
+  `twingate-integration`, `zerotier-integration`) + two sparse
+  subdirs (`accessibility/README.adoc`, `compliance/ACCESSIBILITY.adoc`).
+  No `docs/architecture/`, `docs/decisions/`, `docs/governance/` (until
+  this audit), `docs/practice/`, `docs/specification/`. Integration
+  notes are useful but insufficient — there are no ADRs and no
+  per-subtree orientation for `manifests/`, `configs/`, `scripts/`,
+  `tests/`, `hooks/`, `manifests/`.
+
+- Per-subtree README coverage: *0/7* (manifests/, configs/, scripts/,
+  tests/, hooks/, contractiles/, .machine_readable/). Anything below
+  ~90 % coverage fails the "deep per-file annotation" clause.
+
+- `EXPLAINME.adoc` (9 149 bytes) is substantive but *partially drifted*
+  — claims 5 manifests (including a phantom `pvc.yaml`) while disk
+  has 7 (no `pvc.yaml`), misses `connect-peers.sh`. Drift is smaller
+  than proof-of-work's 10-phantom-paths but still documentation-drift
+  against the grade's central clause.
+
+- `README.adoc` header has the RSR badge stack, architecture diagram,
+  and a `Status` block claiming "Production-ready / 100% complete"
+  that directly contradicts `STATE.a2ml completion-percentage = 50`.
+  Two authoritative self-descriptions disagree by 50 points. HYP-S005
+  feeds on exactly this.
+
+- `ROADMAP.adoc` is the *untouched* `rsr-template-repo` placeholder
+  ("Initial development phase / Core functionality / Basic
+  documentation / CI/CD pipeline"). For a repo claiming C this is the
+  same defect pattern as proof-of-work.
+
+- `INTENT.contractile` still contains the literal template placeholder
+  `"{{ONE_PARAGRAPH_PURPOSE}}"` in the `(purpose …)` clause. The
+  intent contractile has *no declared intent*. The instructional
+  preamble to INTENT explicitly warns "Without INTENT, LLMs drift into
+  scope creep" — and this repo's INTENT is exactly the drift-shaped
+  hole it warns about.
+
+- `.machine_readable/6a2/` files other than STATE are near-empty
+  stubs: META 10 lines, ECOSYSTEM 11 lines (fields = `ecosystem`,
+  `type` only), AGENTIC 25 lines (mostly comment template), NEUROSYM
+  14 lines with `report-format = "logtalk"` (Hypatia removed Logtalk
+  2026-04-12 — stale config), PLAYBOOK 23 lines with every
+  operational field commented out (`# method = "gitops"` etc.).
+
+- `README.adoc` line 8 copyright attribution: `// SPDX-FileCopyrightText:
+  2025 Hyperpolymath <hyperpolymath@proton.me>`. *Violates Author
+  Attribution rule* ("NEVER use 'hyperpolymath' as author name";
+  email wrong; year 2025 in a 2026 repo).
+
+=== Dogfooding / home-stable evidence
+
+STATE.a2ml has *no* `[dogfooding-status]` section and no
+`[external-targets]`/`[issues-fed-back]`/`[field-signal]`. Grep under
+`.machine_readable/` returns zero hits for `dogfoo`. There is no
+`docs/practice/DOGFOOD-LOG.adoc`.
+
+Indirect / adjacent signals:
+
+- `.github/workflows/dogfood-gate.yml` — a *gate* workflow, not a
+  dogfood log. Presence of gate infrastructure without a
+  `[dogfooding-status]` entry catalogue is infrastructure for
+  dogfooding, not evidence of it (same pattern as neurophone and
+  proof-of-work).
+- `.hypatia/activity.jsonl` is a single line (2026-03-08 autofix, 0
+  fixes) — not a usage log.
+- EXPLAINME.adoc §"Dogfooded Across The Account" claims five
+  integrations:
+  * `zerotier-k8s-link` — Direct dependency. *Plausible* — a
+    zerotier-k8s-link repo exists at
+    `systems-ecosystem/flatracoon/netstack/modules/zerotier-k8s-link/`
+    and `verification-ecosystem/zerotier-k8s-link/` (the latter is a
+    hub copy). README inputs table lists it. Marginal supporting
+    evidence.
+  * `flatracoon` — ipfs-overlay is the storage layer. *Supported* —
+    the nested copy at `flatracoon/netstack/modules/ipfs-overlay/`
+    *is* the flatracoon-side satellite. This is the one real dogfood
+    integration.
+  * `infrastructure-automation` — "Ansible `podman_containers` role
+    deploys development-mode IPFS nodes". *Unverified* — no
+    cross-reference found in the sweep.
+  * `gossamer` — "optionally routes large binary assets through the
+    private IPFS cluster". *Unverified* — not in the `gossamer`
+    repo tree by grep.
+  * `gitbot-fleet` — "sustainabot pins important repository snapshots
+    to the private IPFS cluster". *Unverified* — not in
+    `gitbot-fleet/bots/sustainabot/` tree.
+
+Net: *one of five* claimed integrations (flatracoon) has concrete
+in-estate evidence, via the nested-copy gitlink. The other four are
+plausible-sounding but unsubstantiated — the same fabricated-annotation
+pattern as proof-of-work, just milder.
+
+- Completion-percentage = 50 in STATE concedes the project is half
+  built — and *directly contradicts* README.adoc's "Completion: 100%".
+- No cluster deployment logs. No `kubectl get` output committed
+  anywhere. The `just cluster-status` recipe exists; its last output
+  is not captured.
+- Nothing in the tree demonstrates the cluster has actually been
+  deployed and used to pin content.
+
+v2.0 C requires *continuous* home-context use with no known failures.
+The evidence supports *one* integration (flatracoon, via gitlink) and
+does not confirm any running deployment.
+
+=== External validation (Grade B / A)
+
+No `[external-targets]`. No `[issues-fed-back]`. No `[field-signal]`.
+
+External-adjacent signals:
+
+- Dependabot PRs (#41, #42, #43) — automated dependency bumps, not
+  external users.
+- Mirror remotes configured (bitbucket/codeberg/gitlab/sourcehut) —
+  presence, not usage.
+- No awesome-list PR merged, no third-party registry listing, no
+  external contributor commit.
+
+Per v2.0, reaching B requires *6+ diverse external targets* actually
+using the software with feedback fed back. ipfs-overlay is at *0*.
+
+=== HYP-S005 canary
+
+HYP-S005 is the estate-wide detector for "self-declared C while
+evidence supports E or D". It matches the *flat* `crg-grade = "C"`
+key under `[metadata]` in STATE.a2ml and cross-checks it against
+per-suite test counts, completion-percentage consistency, per-directory
+annotation coverage, and dogfooding evidence.
+
+ipfs-overlay would trigger HYP-S005 on *six* independent signals:
+
+1. *Completion-percentage contradiction*: STATE says 50 %, README
+   says "100% / Production-ready". 50-point authoritative-source delta.
+2. *Unfilled INTENT contractile*: `{{ONE_PARAGRAPH_PURPOSE}}`
+   template placeholder in a repo claiming alpha-stable.
+3. *ROADMAP is rsr-template-repo boilerplate*: "v0.1.0 - Foundation:
+   Core functionality / Basic documentation / CI/CD pipeline".
+4. *5/6 6a2 files are stubs*: META/ECOSYSTEM/AGENTIC/NEUROSYM/PLAYBOOK
+   carry schema skeletons, not content.
+5. *Dogfood-claim drift*: 4 of 5 EXPLAINME "Dogfooded Across The
+   Account" integrations unverified.
+6. *Language-policy violation*: 7 banned TypeScript test files
+   created 2026-04-04.
+
+No HYP-S005 suppression comment is present and none is warranted.
+The *test-count* axis of HYP-S005 does *not* fire (suite counts are
+honest — this is the one rule ipfs-overlay passes cleanly).
+
+=== Self-knowing policy violations
+
+- *Language policy*: 7 `.ts` files in `tests/`. TypeScript is banned
+  estate-wide ("No new TypeScript files — Convert existing TS to
+  ReScript"). Adding 1 005 LOC of new `.ts` on 2026-04-04 is exactly
+  the forbidden case. Replacement path: ReScript, or
+  Deno-bash-equivalent shell scripts, or Julia for config
+  validation.
+- *Attribution*: `README.adoc` line 8
+  `SPDX-FileCopyrightText: 2025 Hyperpolymath <hyperpolymath@proton.me>`
+  — violates three rules at once (wrong name, wrong email, wrong year).
+- *Completion contradiction*: README `Completion: 100%` vs STATE
+  `completion-percentage = 50`.
+- *NEUROSYM stale*: `report-format = "logtalk"` — Hypatia removed
+  Logtalk 2026-04-12. Config references retired backend.
+- *ANCHOR/CLADE disagreement*: parent = boj-server vs lineage = standalone.
+- *INTENT placeholder*: `{{ONE_PARAGRAPH_PURPOSE}}` unfilled.
+- *ROADMAP placeholder*: untouched rsr-template-repo boilerplate.
+- *CLADE rationale empty*: `rationale = ""`.
+- *`just test` / `just fmt` stubs*: empty-echo no-ops;
+  Mustfile `tests`/`format` checks resolve to these stubs.
+
+=== EXPLAINME fabrication check
+
+EXPLAINME.adoc is 9 149 bytes across 237 lines. Two drift sites:
+
+1. *File Map*: claims 5 manifests incl. phantom `pvc.yaml`; disk has
+   7 incl. no `pvc.yaml`. Misses `connect-peers.sh`.
+2. *Dogfooded Across The Account*: 5 claimed integrations;
+   flatracoon supported (gitlink), zerotier-k8s-link marginal,
+   infrastructure-automation/gossamer/gitbot-fleet unverified.
+
+Severity: *mild* compared to proof-of-work (10/16 phantom paths, 4/4
+phantom dogfood integrations). ipfs-overlay's EXPLAINME is largely
+accurate; the drift is concentrated in two tables. Fixable in one
+commit.
+
+== Grade x Evidence Matrix
+
+[cols="1,1,3,3"]
+|===
+| Grade | Met? | Evidence supporting | Evidence against / gaps
+
+| X
+| n/a
+| 56 Deno.test + 9 Deno.bench attributes -> not X
+| —
+
+| F
+| n/a
+| Not superseded; no harm signal; flatracoon satellite is the real
+  deployment path, not a replacement.
+| —
+
+| E
+| ✓
+| >=1 test exists; 56 grep-verifiable Deno.test attributes; suite
+  declarations match grep exactly.
+| —
+
+| D
+| ✓ *(earned)*
+| 18 workflows (parse cleanly), 6a2 file layout present, contractile
+  trident, Justfile + Mustfile, `.well-known/` complete, LICENSE clean,
+  SPDX uniform on 29/29 sampled files, zero dangerous patterns in
+  configs/scripts/tests, zero merge conflicts, scope *described* in
+  README/EXPLAINME/TEST-NEEDS (however inaccurately).
+| ROADMAP is template boilerplate; INTENT contractile has unfilled
+  placeholder; README attribution wrong; 5/6 6a2 files are stubs;
+  anchor/clade disagree. None drops D-floor but all tee up the C
+  audit.
+
+| C
+| *✗*
+| Test-count honesty: 56 declared = 56 grep-verifiable (unique
+  positive signal in this audit cohort). Uniform SPDX. Clean
+  dangerous-pattern sweep. Three integration notes in `docs/`.
+  One concrete dogfood integration (flatracoon gitlink).
+| *Language-policy violation: 7 new `.ts` files created 2026-04-04
+  under a standing TypeScript ban.* No `[dogfooding-status]` section.
+  4/5 claimed dogfood integrations unverified. `just test` and
+  `just fmt` are empty echo stubs — "CI green" claim is not wired
+  through. Zero per-directory READMEs. Five of six 6a2 files are
+  stubs. INTENT contractile placeholder-only. ROADMAP untouched
+  template. README vs STATE completion contradiction (100% vs 50%).
+  EXPLAINME File Map drift (phantom pvc.yaml, missing connect-peers.sh).
+  NEUROSYM references retired Logtalk. Author attribution wrong.
+
+| B
+| ✗
+| —
+| Zero external targets. Zero issues-fed-back. Zero field signal.
+
+| A
+| ✗
+| —
+| No field confirmation.
+|===
+
+== Verdict
+
+*Current CRG grade: **D (Alpha)**. Demote one grade from self-declared C.*
+
+Self-declared: *C*. Audited: *D*. One-grade honesty delta — same
+magnitude as proof-of-work (also C→D).
+
+Reasoning (one sentence): ipfs-overlay passes the D-floor cleanly and
+is the *rare case where declared test counts match grep exactly*
+(56 = 56), but it fails C on seven independent axes — the tests are
+written in a banned language (TypeScript, 1 005 LOC added 2026-04-04),
+the CI-green claim rests on empty `just test` / `just fmt` stubs, there
+is no `[dogfooding-status]` entry, 4 of 5 "Dogfooded Across The Account"
+integrations are unverified, the INTENT contractile still contains
+the `{{ONE_PARAGRAPH_PURPOSE}}` template placeholder, ROADMAP is
+rsr-template-repo boilerplate, and README `Completion: 100%` contradicts
+STATE `completion-percentage = 50` by 50 points.
+
+The D grade is earned, not conservative-by-default, on three positive
+signals:
+
+1. *Test-matrix honesty*: 56 declared Deno.test = 56 grep-verifiable.
+   All six suites match exactly. This is the *opposite* of
+   proof-of-work's 37–56 % overclaim pattern and earns the D cleanly.
+2. *Clean structural hygiene*: 18 workflows that parse, SPDX on 29/29
+   sampled files, LICENSES trident, `.well-known/` complete with Groove
+   subdirectory, contractile trident files present, zero committed
+   merge-conflict markers, zero dangerous patterns across configs +
+   scripts + tests.
+3. *One genuine dogfood linkage*: flatracoon's netstack module at
+   `flatracoon/netstack/modules/ipfs-overlay/` is a gitlinked
+   satellite of this repo. The integration is real; its invocation
+   log is what's missing.
+
+What blocks *immediate* promotion to C (do these first):
+
+. *Rewrite or remove the 7 TypeScript test files.* Either port
+  `tests/**/*.ts` to ReScript (compiling to JS for Deno) or rewrite as
+  Deno-runnable shell-style validation with `deno run --allow-read`.
+  Remove the language-policy violation before any C claim.
+. *Add `[dogfooding-status]` to STATE.a2ml* with a concrete entry for
+  flatracoon (the real one) and strike the four unsubstantiated
+  integrations from EXPLAINME.
+. *Fill INTENT.contractile.* Replace `{{ONE_PARAGRAPH_PURPOSE}}` with
+  one paragraph stating this repo's purpose, anti-purpose, and
+  load-bearing decisions.
+. *Reconcile completion percentage.* Either rewrite README
+  `Status: Production-ready / 100%` to match STATE's 50 %, or raise
+  STATE to match README (and justify the raise with concrete evidence).
+  The two authoritative sources cannot disagree by 50 points.
+. *Populate ROADMAP.adoc* with real milestones and dates. Drop the
+  rsr-template-repo placeholder.
+. *Fix EXPLAINME File Map*: remove phantom `pvc.yaml`, add the 3
+  missing manifests (`namespace.yaml`, `networkpolicy.yaml`,
+  `servicemonitor.yaml`), add `connect-peers.sh`.
+. *Wire `just test` to actually run the suite*: `deno test
+  --allow-read tests/`. Same for `just fmt`. A green CI claim on empty
+  stubs is dishonest.
+. *Fill the 6a2 stubs* (META, ECOSYSTEM, AGENTIC, NEUROSYM, PLAYBOOK)
+  with content appropriate to a Kubernetes + ZeroTier IPFS module.
+  Fix NEUROSYM's stale `report-format = "logtalk"` (Hypatia dropped
+  Logtalk 2026-04-12 — should be `json`).
+. *Reconcile ANCHOR.a2ml vs CLADE.a2ml.* Pick one parentage (standalone
+  vs child-of-boj-server) and make both files agree.
+. *Fix README.adoc attribution*: `Jonathan D.A. Jewell
+  <j.d.a.jewell@open.ac.uk>`, not `Hyperpolymath <hyperpolymath@proton.me>`.
+  Update year `2025 → 2026`.
+. *Add per-subtree READMEs* for `manifests/`, `configs/`, `scripts/`,
+  `tests/`, `hooks/`, `contractiles/`.
+
+What blocks promotion to B (after C):
+
+. Zero external targets. Need 6+ diverse — a natural set for an IPFS
+  overlay is platforms (k3s, k0s, vanilla kubeadm, microk8s), cluster
+  scales (1-node, 3-node, 5-node), CNI combinations.
+. No external-contributor flow. Dependabot doesn't count.
+. No deployment logs from a real cluster. A storage module with no
+  `kubectl get pods` output committed cannot feed back issues.
+
+== Notes on Non-Negotiables Respected by this Audit
+
+- ipfs-overlay is a *declarative* module (YAML + Nickel + bash).
+  The D-floor is evaluated accordingly — no Idris/Zig/Rust ABI/FFI
+  expectation applies.
+- The nested copy at
+  `systems-ecosystem/flatracoon/netstack/modules/ipfs-overlay/` is a
+  *gitlink*, not a divergent fork. Slight propagation lag on three
+  files (hypatia-scan.yml, .gitignore, LICENSE) is the flatracoon
+  side's pull-and-rebase responsibility, not a grading concern here.
+- `Containerfile` absence is acceptable for a manifests-only module
+  (deployment is `kubectl apply`, not `podman build`). The
+  `boj-build.yml` workflow is the only artefact that assumes one.
+- STATE.a2ml `[testing-status]` block is internally consistent with
+  `TEST-NEEDS.md` and with grep. What destroys the C claim is not
+  any internal test-count contradiction but the gap between the test
+  evidence and the C grade's *other* clauses (dogfooding, annotation,
+  language policy, CI-wiring).
+- HYP-S005 would flag this repo on six independent axes under the
+  existing `[metadata] crg-grade = "C"` rule; no suppression warranted.
+- Standing rules respected: PMPL-1.0-or-later SPDX on all source,
+  GitHub-only push origin (mirror remotes are informational),
+  Deno (not Node/npm), guix + flake present.
+
+== STATE.a2ml update recommendation
+
+Recommended (do NOT execute as part of this audit) — edit
+`.machine_readable/6a2/STATE.a2ml`:
+
+[source,toml]
+----
+[metadata]
+project = "ipfs-overlay"
+version = "0.1.0"
+last-updated = "2026-04-18"
+status = "active"
+crg-grade = "D"                # was "C"
+crg-grade-previous = "C"       # audit trail
+crg-audit = "docs/governance/CRG-AUDIT-2026-04-18.adoc"
+crg-next-target = "C"
+
+[project-context]
+name = "ipfs-overlay"
+completion-percentage = 50     # stays at 50; fix README to match, not STATE
+phase = "D-earned; C-lift blocked by TS language-policy violation, unfilled INTENT, missing dogfood log, and empty just-test/just-fmt stubs."
+
+[testing-status]
+# Counts verified against grep 2026-04-18 — these are honest.
+unit-tests = "complete (9 tests)"
+smoke-tests = "complete (7 tests)"
+property-tests = "complete (10 tests)"
+e2e-tests = "complete (10 tests)"
+contract-tests = "complete (10 tests)"
+aspect-tests = "complete (10 tests)"
+benchmarks = "baselined (9 suites)"
+total-tests = "56 passed, 0 failed"
+language-policy-debt = "All 7 test files are TypeScript — banned. Must port to ReScript or rewrite before C claim."
+
+[blockers]
+language-policy = "7 TypeScript test files (1 005 LOC) created 2026-04-04; TS is banned estate-wide."
+dogfood-log-missing = "No [dogfooding-status] section; 4 of 5 EXPLAINME dogfood integrations unsubstantiated."
+intent-placeholder = "INTENT.contractile contains literal {{ONE_PARAGRAPH_PURPOSE}} template placeholder."
+completion-contradiction = "README says 'Production-ready / 100%', STATE says 50."
+just-test-stub = "'just test' body is @echo \"Testing...\". 'just fmt' body is @echo \"Formatting...\". CI-green claim is hollow."
+roadmap-unfilled = "ROADMAP.adoc is the rsr-template-repo placeholder."
+explainme-file-map-drift = "EXPLAINME claims pvc.yaml (phantom), misses 3 real manifests + connect-peers.sh."
+6a2-stubs = "5 of 6 6a2 files (META/ECOSYSTEM/AGENTIC/NEUROSYM/PLAYBOOK) are near-empty schema skeletons."
+anchor-clade-disagreement = "ANCHOR says parent=boj-server; CLADE says lineage=standalone."
+neurosym-stale = "report-format=logtalk; Hypatia removed Logtalk 2026-04-12."
+readme-attribution = "README.adoc copyright: 'Hyperpolymath <hyperpolymath@proton.me>' 2025 — violates Author Attribution rule."
+----
+
+Demote target: *D*. Route-to-C is the eleven-item fix list above.
+
+== Related Files
+
+- `.machine_readable/6a2/STATE.a2ml` — authoritative self-declared
+  state; recommend demote C→D with notes citing this audit.
+- `TEST-NEEDS.md` — declared 56 tests; *honestly reconciles with grep*
+  (rare positive against HYP-S005); "Certified by Claude Haiku 4.5"
+  noted as prior-auditor provenance.
+- `README.adoc` — `Completion: 100%` contradicts STATE `50`; fix
+  attribution header + year.
+- `EXPLAINME.adoc` File Map — phantom `pvc.yaml`; add 3 missing
+  manifests + `connect-peers.sh`; strike unsubstantiated dogfood
+  integrations.
+- `.machine_readable/INTENT.contractile` — unfilled
+  `{{ONE_PARAGRAPH_PURPOSE}}` placeholder.
+- `ROADMAP.adoc` — unfilled rsr-template-repo placeholder.
+- `.machine_readable/anchors/ANCHOR.a2ml` vs
+  `.machine_readable/CLADE.a2ml` — parentage disagreement.
+- `.machine_readable/6a2/{META,ECOSYSTEM,AGENTIC,NEUROSYM,PLAYBOOK}.a2ml`
+  — five stubs to populate; NEUROSYM `report-format` stale.
+- `tests/**/*.ts` — 7 TypeScript files (1 005 LOC) to port or remove
+  before C claim.
+- `Justfile` `test`/`fmt` recipes — empty echo stubs; wire to
+  `deno test --allow-read tests/`.
+- `systems-ecosystem/flatracoon/netstack/modules/ipfs-overlay/` —
+  nested gitlink satellite; propagation lag on 3 files.
+- `docs/governance/CRG-LIFT-PLAN-2026-04-18.adoc` — *to be written*
+  if a C-lift sprint is scheduled.
+
+_End of audit._
