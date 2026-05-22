@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 
 = ipfs-overlay — CRG Audit (2026-04-18)
@@ -83,7 +83,7 @@ Publication requires B+. Long alpha is discipline, not shame.
 | Thicker than proof-of-work (1 file) but no ADRs and no per-subtree orientation.
 
 | `LICENSE` + `LICENSES/` directory
-| PRESENT (`LICENSE` PMPL-1.0-or-later full text, `LICENSES/` dir)
+| PRESENT (`LICENSE` MPL-2.0 full text, `LICENSES/` dir)
 | Root
 
 | `guix.scm` + `flake.nix`
@@ -95,7 +95,7 @@ Publication requires B+. Long alpha is discipline, not shame.
 | `.well-known/`
 
 | SPDX headers on source
-| PRESENT on 29/29 sampled (3 configs, 4 scripts, 7 manifests, 7 tests, 2 well-known) — uniformly `PMPL-1.0-or-later`.
+| PRESENT on 29/29 sampled (3 configs, 4 scripts, 7 manifests, 7 tests, 2 well-known) — uniformly `MPL-2.0`.
 | Uniform.
 
 | `Containerfile` (not `Dockerfile`)
@@ -638,7 +638,7 @@ What blocks promotion to B (after C):
   language policy, CI-wiring).
 - HYP-S005 would flag this repo on six independent axes under the
   existing `[metadata] crg-grade = "C"` rule; no suppression warranted.
-- Standing rules respected: PMPL-1.0-or-later SPDX on all source,
+- Standing rules respected: MPL-2.0 SPDX on all source,
   GitHub-only push origin (mirror remotes are informational),
   Deno (not Node/npm), guix + flake present.
 

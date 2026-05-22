@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
 import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.208.0/assert/mod.ts";
@@ -24,7 +24,7 @@ Deno.test("Unit: All config files have SPDX headers", async () => {
 
   for (const path of configPaths) {
     const content = await Deno.readTextFile(path);
-    assertStringIncludes(content, "SPDX-License-Identifier: PMPL-1.0-or-later");
+    assertStringIncludes(content, "SPDX-License-Identifier: MPL-2.0");
   }
 });
 

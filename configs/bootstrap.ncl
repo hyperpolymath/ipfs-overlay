@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Nickel configuration for IPFS bootstrap peers (private swarm)
 
 let BootstrapConfig = {

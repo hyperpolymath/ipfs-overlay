@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
 import { assert, assertStringIncludes } from "https://deno.land/std@0.208.0/assert/mod.ts";
@@ -45,7 +45,7 @@ Deno.test("Contract: INVARIANT 3 — All Nickel files must have SPDX headers", a
       const content = await Deno.readTextFile(file);
       assertStringIncludes(
         content,
-        "SPDX-License-Identifier: PMPL-1.0-or-later",
+        "SPDX-License-Identifier: MPL-2.0",
         `${file} missing SPDX header`,
       );
     } catch (e) {
@@ -160,7 +160,7 @@ Deno.test("Contract: INVARIANT 9 — All scripts have SPDX headers", async () =>
     const content = await Deno.readTextFile(script);
     assertStringIncludes(
       content,
-      "SPDX-License-Identifier: PMPL-1.0-or-later",
+      "SPDX-License-Identifier: MPL-2.0",
       `${script} missing SPDX header`,
     );
   }

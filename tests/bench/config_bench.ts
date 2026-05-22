@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
 // Baseline performance benchmarks for config file reading
@@ -53,7 +53,7 @@ Deno.bench("read and validate SPDX headers", async () => {
   const validations = await Promise.all(
     configs.map(async (file) => {
       const content = await Deno.readTextFile(file);
-      return content.includes("SPDX-License-Identifier: PMPL-1.0-or-later");
+      return content.includes("SPDX-License-Identifier: MPL-2.0");
     }),
   );
 
