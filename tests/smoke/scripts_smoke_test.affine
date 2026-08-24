@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
-// Ported via Harvard Engine mechanical processor
+// Ported via Harvard Engine (Semantic pass)
 
 module scripts_smoke_test;
 
-// TODO: Complete semantic implementation
-
-/* === ORIGINAL TYPESCRIPT CONTEXT ===
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
 import { assertEquals, assert } from "https://deno.land/std@0.208.0/assert/mod.ts";
 
 Deno.test("Smoke: All scripts exist", async () => {
-  const scripts = [
+  let scripts = [
     "scripts/init-node.sh",
     "scripts/health-check.sh",
     "scripts/generate-swarm-key.sh",
@@ -25,7 +22,7 @@ Deno.test("Smoke: All scripts exist", async () => {
 });
 
 Deno.test("Smoke: All scripts have SPDX headers", async () => {
-  const scripts = [
+  let scripts = [
     "scripts/init-node.sh",
     "scripts/health-check.sh",
     "scripts/generate-swarm-key.sh",
@@ -33,7 +30,7 @@ Deno.test("Smoke: All scripts have SPDX headers", async () => {
   ];
 
   for (const script of scripts) {
-    const content = await Deno.readTextFile(script);
+    let content = await Deno.readTextFile(script);
     assert(
       content.includes("SPDX-License-Identifier"),
       `${script} missing SPDX header`,
@@ -42,7 +39,7 @@ Deno.test("Smoke: All scripts have SPDX headers", async () => {
 });
 
 Deno.test("Smoke: Scripts have executable permission", async () => {
-  const scripts = [
+  let scripts = [
     "scripts/init-node.sh",
     "scripts/health-check.sh",
     "scripts/generate-swarm-key.sh",
@@ -50,8 +47,8 @@ Deno.test("Smoke: Scripts have executable permission", async () => {
   ];
 
   for (const script of scripts) {
-    const stat = await Deno.stat(script);
-    const mode = stat.mode;
+    let stat = await Deno.stat(script);
+    let mode = stat.mode;
     // Check if owner execute bit is set (mode & 0o100)
     assert(
       mode !== null && (mode & 0o100) !== 0,
@@ -61,7 +58,7 @@ Deno.test("Smoke: Scripts have executable permission", async () => {
 });
 
 Deno.test("Smoke: Scripts don't contain eval injection vector", async () => {
-  const scripts = [
+  let scripts = [
     "scripts/init-node.sh",
     "scripts/health-check.sh",
     "scripts/generate-swarm-key.sh",
@@ -69,7 +66,7 @@ Deno.test("Smoke: Scripts don't contain eval injection vector", async () => {
   ];
 
   for (const script of scripts) {
-    const content = await Deno.readTextFile(script);
+    let content = await Deno.readTextFile(script);
     assert(
       !content.includes(" eval "),
       `${script} contains eval statement`,
@@ -78,7 +75,7 @@ Deno.test("Smoke: Scripts don't contain eval injection vector", async () => {
 });
 
 Deno.test("Smoke: Scripts don't use unsafe command substitution", async () => {
-  const scripts = [
+  let scripts = [
     "scripts/init-node.sh",
     "scripts/health-check.sh",
     "scripts/generate-swarm-key.sh",
@@ -86,13 +83,13 @@ Deno.test("Smoke: Scripts don't use unsafe command substitution", async () => {
   ];
 
   for (const script of scripts) {
-    const content = await Deno.readTextFile(script);
+    let content = await Deno.readTextFile(script);
     // Check for unsafe patterns like $(...) with user input
     // Safe pattern: $(...) with static commands is OK
     // Unsafe: $(...$...) nested with variables
-    const lines = content.split("\n");
+    let lines = content.split("\n");
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      let line = lines[i];
       // Check for backtick eval pattern (older bash)
       if (line.includes("`") && line.includes("$")) {
         assert(
@@ -105,7 +102,7 @@ Deno.test("Smoke: Scripts don't use unsafe command substitution", async () => {
 });
 
 Deno.test("Smoke: init-node.sh has bash shebang", async () => {
-  const content = await Deno.readTextFile("scripts/init-node.sh");
+  let content = await Deno.readTextFile("scripts/init-node.sh");
   assert(
     content.startsWith("#!/bin/bash"),
     "init-node.sh missing #!/bin/bash shebang",
@@ -113,7 +110,7 @@ Deno.test("Smoke: init-node.sh has bash shebang", async () => {
 });
 
 Deno.test("Smoke: All scripts use set -e (fail-fast)", async () => {
-  const scripts = [
+  let scripts = [
     "scripts/init-node.sh",
     "scripts/health-check.sh",
     "scripts/generate-swarm-key.sh",
@@ -121,7 +118,7 @@ Deno.test("Smoke: All scripts use set -e (fail-fast)", async () => {
   ];
 
   for (const script of scripts) {
-    const content = await Deno.readTextFile(script);
+    let content = await Deno.readTextFile(script);
     assert(
       content.includes("set -e"),
       `${script} missing "set -e" for error handling`,
@@ -129,4 +126,3 @@ Deno.test("Smoke: All scripts use set -e (fail-fast)", async () => {
   }
 });
 
-==================================== */
