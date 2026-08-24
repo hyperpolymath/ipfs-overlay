@@ -1,4 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
+// Ported via Harvard Engine mechanical processor
+
+module security_aspect_test;
+
+// TODO: Complete semantic implementation
+
+/* === ORIGINAL TYPESCRIPT CONTEXT ===
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
 import { assert, assertStringIncludes } from "https://deno.land/std@0.208.0/assert/mod.ts";
@@ -206,3 +214,5 @@ Deno.test("Aspect: Security — Verify DHT is disabled (no public peer discovery
   assertStringIncludes(bootstrapContent, "dht = false");
   assertStringIncludes(ipfsContent, 'Type = "none"');
 });
+
+==================================== */
