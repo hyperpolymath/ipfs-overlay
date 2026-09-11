@@ -1,6 +1,0 @@
-{
-  "tasks": {
-    "test": "deno test --allow-read tests/",
-    "bench": "deno bench --allow-read tests/bench/"
-  }
-}

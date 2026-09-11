@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: MPL-2.0
+// Ported via Harvard Engine (Semantic pass)
+
+module pipeline_e2e_test;
+
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
 import { assert, assertStringIncludes } from "https://deno.land/std@0.208.0/assert/mod.ts";
 
 // Helper: Parse a simple Nickel-like config format
-function parseNickelValue(content: string, key: string): string | null {
+fn parseNickelValue(content: string, key: string): string | null {
   // Look for pattern: key = value or key = [...]
-  const pattern = new RegExp(`${key}\\s*=\\s*([^,}]+?)(?=[,}]|$)`, "s");
-  const match = content.match(pattern);
+  let pattern = new RegExp(`${key}\\s*=\\s*([^,}]+?)(?=[,}]|$)`, "s");
+  let match = content.match(pattern);
   return match ? match[1].trim() : null;
 }
 
 Deno.test("E2E: Full pipeline reads all config files", async () => {
-  const bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
-  const ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
-  const swarmContent = await Deno.readTextFile("configs/swarm.ncl");
+  let bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
+  let ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
+  let swarmContent = await Deno.readTextFile("configs/swarm.ncl");
 
   assert(bootstrapContent.length > 0, "Bootstrap config is empty");
   assert(ipfsContent.length > 0, "IPFS config is empty");
@@ -22,7 +27,7 @@ Deno.test("E2E: Full pipeline reads all config files", async () => {
 });
 
 Deno.test("E2E: Pipeline validates structure in bootstrap config", async () => {
-  const content = await Deno.readTextFile("configs/bootstrap.ncl");
+  let content = await Deno.readTextFile("configs/bootstrap.ncl");
 
   assertStringIncludes(content, "let BootstrapConfig");
   assertStringIncludes(content, "bootstrapPeers");
@@ -31,7 +36,7 @@ Deno.test("E2E: Pipeline validates structure in bootstrap config", async () => {
 });
 
 Deno.test("E2E: Pipeline validates structure in IPFS config", async () => {
-  const content = await Deno.readTextFile("configs/ipfs-config.ncl");
+  let content = await Deno.readTextFile("configs/ipfs-config.ncl");
 
   assertStringIncludes(content, "let IpfsConfig");
   assertStringIncludes(content, "Bootstrap");
@@ -41,7 +46,7 @@ Deno.test("E2E: Pipeline validates structure in IPFS config", async () => {
 });
 
 Deno.test("E2E: Pipeline validates structure in swarm config", async () => {
-  const content = await Deno.readTextFile("configs/swarm.ncl");
+  let content = await Deno.readTextFile("configs/swarm.ncl");
 
   assertStringIncludes(content, "let SwarmKeyConfig");
   assertStringIncludes(content, "version");
@@ -51,7 +56,7 @@ Deno.test("E2E: Pipeline validates structure in swarm config", async () => {
 });
 
 Deno.test("E2E: SECURITY INVARIANT - Bootstrap must be empty array for private swarm", async () => {
-  const bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
+  let bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
 
   // Private swarm MUST have empty bootstrap peers
   assertStringIncludes(
@@ -61,13 +66,13 @@ Deno.test("E2E: SECURITY INVARIANT - Bootstrap must be empty array for private s
   );
 
   // Secondary check in IPFS config
-  const ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
+  let ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
   assertStringIncludes(ipfsContent, "Bootstrap = []");
 });
 
 Deno.test("E2E: SECURITY INVARIANT - MDNS must be disabled for private swarm", async () => {
-  const bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
-  const ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
+  let bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
+  let ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
 
   // Both configs should disable MDNS
   assertStringIncludes(bootstrapContent, "mdns = false");
@@ -75,8 +80,8 @@ Deno.test("E2E: SECURITY INVARIANT - MDNS must be disabled for private swarm", a
 });
 
 Deno.test("E2E: SECURITY INVARIANT - DHT routing must be disabled", async () => {
-  const bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
-  const ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
+  let bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
+  let ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
 
   // Bootstrap config should disable DHT
   assertStringIncludes(bootstrapContent, "dht = false");
@@ -86,8 +91,8 @@ Deno.test("E2E: SECURITY INVARIANT - DHT routing must be disabled", async () => 
 });
 
 Deno.test("E2E: Pipeline verifies no conflicts between bootstrap and IPFS configs", async () => {
-  const bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
-  const ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
+  let bootstrapContent = await Deno.readTextFile("configs/bootstrap.ncl");
+  let ipfsContent = await Deno.readTextFile("configs/ipfs-config.ncl");
 
   // Both should have empty bootstrap
   assert(bootstrapContent.includes("bootstrapPeers = []"));
@@ -99,7 +104,7 @@ Deno.test("E2E: Pipeline verifies no conflicts between bootstrap and IPFS config
 });
 
 Deno.test("E2E: Pipeline verifies swarm key format is declared", async () => {
-  const content = await Deno.readTextFile("configs/swarm.ncl");
+  let content = await Deno.readTextFile("configs/swarm.ncl");
 
   // Swarm key version should be declared
   assertStringIncludes(content, 'version = "1.0.0"');
@@ -110,15 +115,15 @@ Deno.test("E2E: Pipeline verifies swarm key format is declared", async () => {
   // Encoding should be base16
   assertStringIncludes(content, 'encoding = "base16"');
 
-  // Key format function should exist
+  // Key format fn should exist
   assertStringIncludes(content, "keyFormat = fun key");
 });
 
 Deno.test("E2E: Full configuration pipeline validates end-to-end", async () => {
   // Read all configs
-  const bootstrap = await Deno.readTextFile("configs/bootstrap.ncl");
-  const ipfs = await Deno.readTextFile("configs/ipfs-config.ncl");
-  const swarm = await Deno.readTextFile("configs/swarm.ncl");
+  let bootstrap = await Deno.readTextFile("configs/bootstrap.ncl");
+  let ipfs = await Deno.readTextFile("configs/ipfs-config.ncl");
+  let swarm = await Deno.readTextFile("configs/swarm.ncl");
 
   // Verify SPDX headers present everywhere
   assert(bootstrap.includes("SPDX-License-Identifier"));
@@ -135,3 +140,4 @@ Deno.test("E2E: Full configuration pipeline validates end-to-end", async () => {
   assert(ipfs.includes("in IpfsConfig"));
   assert(swarm.includes("in SwarmKeyConfig"));
 });
+

@@ -1,5 +1,5 @@
-# This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 # This workflow is managed by gh actions-lock.
 name: OSSF Scorecard
 
@@ -9,12 +9,17 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   security-events: write
   id-token: write
 jobs:
   scorecard:
-    uses: hyperpolymath/standards/.github/workflows/scorecard-reusable.yml@7fdc2705df74b4e352d2a1cde3e87a5923fdf329
+<<<<<<< HEAD
+    uses: hyperpolymath/standards/.github/workflows/scorecard-reusable.yml@8750b94ac1bbe8c51ad13fe106669b13478f0b62
+=======
+    uses: hyperpolymath/standards/.github/workflows/scorecard-reusable.yml@8750b94ac1bbe8c51ad13fe106669b13478f0b62
+>>>>>>> 2399bc4f2fc8d20628afe2166d4cc0c7ca7378bf
     permissions:
       contents: read
       security-events: write
