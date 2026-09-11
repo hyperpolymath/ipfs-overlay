@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Template: QUICKSTART-MAINTAINER.adoc — packaging, deploying, and maintaining
-// Replace ipfs-overlay, ipfs-overlay, {{DEPS}} with actuals
+// Replace {{DEPS}} with actuals
 = ipfs-overlay — Quick Start for Platform Maintainers
 :toc:
 :toclevels: 2
