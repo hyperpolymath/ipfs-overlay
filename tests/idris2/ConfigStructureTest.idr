@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: MPL-2.0
+-- SPDX-License-Identifier: PMPL-1.0-or-later
 -- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 --
 -- Port of tests/unit/config_structure_test.ts to Idris2, estate-rollout port 7/11.
@@ -38,7 +38,7 @@ allSuites =
       a <- readFileToString "configs/bootstrap.ncl"
       b <- readFileToString "configs/ipfs-config.ncl"
       c <- readFileToString "configs/swarm.ncl"
-      let spdx = "SPDX-License-Identifier: MPL-2.0"
+      let spdx = "SPDX-License-Identifier: PMPL-1.0-or-later"
       allPass
         [ assertTrue "bootstrap.ncl SPDX" (isInfixOf spdx a)
         , assertTrue "ipfs-config.ncl SPDX" (isInfixOf spdx b)
