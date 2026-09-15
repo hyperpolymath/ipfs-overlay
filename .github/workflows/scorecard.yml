@@ -11,10 +11,11 @@ on:
 permissions:
   actions: read
   contents: read
-
+  security-events: write
+  id-token: write
 jobs:
   scorecard:
-    uses: hyperpolymath/standards/.github/workflows/scorecard-reusable.yml@84355587cb2a1f86e6882de83514a32db2646e7a
+    uses: hyperpolymath/standards/.github/workflows/scorecard-reusable.yml@da2c748aad55c1a1dcba00b60fe4a35017bc6540
     permissions:
       contents: read
       security-events: write
