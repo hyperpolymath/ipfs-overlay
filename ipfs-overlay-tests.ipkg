@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: PMPL-1.0-or-later
+-- SPDX-License-Identifier: MPL-2.0
 -- ipfs-overlay Idris2 test suite. Estate port 7/11 — both TS test files
 -- ported (config_structure + config_contracts, content-validation pattern).
 

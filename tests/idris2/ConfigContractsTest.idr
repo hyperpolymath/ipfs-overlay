@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: PMPL-1.0-or-later
+-- SPDX-License-Identifier: MPL-2.0
 -- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 --
 -- Port of tests/contract/config_contracts_test.ts to Idris2, estate-rollout port 7/11.
@@ -51,7 +51,7 @@ allSuites =
         ]
 
   , test "Contract: INVARIANT 3 - All Nickel files must have SPDX headers" $ do
-      let spdx = "SPDX-License-Identifier: PMPL-1.0-or-later"
+      let spdx = "SPDX-License-Identifier: MPL-2.0"
       a <- readFileToString "configs/bootstrap.ncl"
       b <- readFileToString "configs/ipfs-config.ncl"
       c <- readFileToString "configs/swarm.ncl"
@@ -112,7 +112,7 @@ allSuites =
         ]
 
   , test "Contract: INVARIANT 9 - All scripts have SPDX headers" $ do
-      let spdx = "SPDX-License-Identifier: PMPL-1.0-or-later"
+      let spdx = "SPDX-License-Identifier: MPL-2.0"
       a <- readFileToString "scripts/init-node.sh"
       b <- readFileToString "scripts/health-check.sh"
       c <- readFileToString "scripts/generate-swarm-key.sh"
